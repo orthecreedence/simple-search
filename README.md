@@ -12,7 +12,7 @@ Feature list:
 
 - Full-text indexing with optional stemming support
 - Ability to unindex or re-index documents
-- Phrase searches (which require manual work)
+- Phrase searches (which [require manual work](#query-function))
 - Tree-based query language using three primitive operators: `and`, `or`, `not`
 - Sorting on fields in documents
 - Offset/limiting of result sets
