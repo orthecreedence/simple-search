@@ -117,3 +117,16 @@
                         (t final))))
       final)))
 
+(defun process-search-string (str)
+  "Convert a standard search string into a simple-search query form:
+     \"empire -state\" => '(:and \"empire\" (:not \"state\"))"
+  (let ((words (cl-ppcre:split "\\s+" str))
+        (query nil))
+    (dolist (word (reverse words))
+      (push (if (eq (aref word 0) #\-)
+                (list :not (subseq word 1))
+                word)
+            query))
+    (push :and query)
+    query))
+

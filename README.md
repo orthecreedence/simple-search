@@ -40,6 +40,7 @@ something awry.
 - [unindex](#unindex-function)
 - [phrase-search](#phrase-search-function)
 - [query](#query)
+- [process-search-string](#process-search-string-function)
 
 ### document (class)
 This is an opaque class created by [make-document](#make-document-function). It
@@ -207,6 +208,7 @@ how it works:
        '(:and "restaurant"
               (:not "tacos" (:phrase . "good times")))
        :phrase-fn (lambda (doc-id ref phrase)
+                    (declare (ignore doc-id))
                     ;; here, `ref` is the :reference entry we passed to make-document
                     (phrase-search phrase ref)))
 ```
@@ -221,6 +223,14 @@ the number of returned documents:
        :offset 30
        :limit 10)
 ```
+
+### process-search-string (function)
+```lisp
+(defun process-search-string (str))
+  => query-form
+```
+Takes a search string, such as "dogs -sad" and turns it into a query form you can
+use in [query](#query-function): `'(:and "dogs" (:not "sad"))`.
 
 ## Tests
 ```lisp

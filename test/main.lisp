@@ -90,6 +90,7 @@
 (test (query :depends-on index)
   "Can we query our index???????!!!?!?!11"
   (flet ((phrase-fn (doc-id ref phrase)
+           (declare (ignore doc-id))
            (phrase-search phrase ref)))
     (let ((res1 (query *dog-index* '(:and "pomeranian") :sort '("id")))
           (res2 (query *dog-index* '(:and "mutt" (:not "shy")) :sort '("id" . :desc)))
@@ -140,6 +141,7 @@
 (test (unindex-query :depends-on unindex)
   "Does unindexing reflect query results?"
   (flet ((phrase-fn (doc-id ref phrase)
+           (declare (ignore doc-id))
            (phrase-search phrase ref)))
     (let ((res1 (query *dog-index* '(:and "pomeranian") :sort '("id")))
           (res2 (query *dog-index* '(:and "mutt" (:not "shy")) :sort '("id" . :desc)))
@@ -199,6 +201,15 @@
       (is (equalp '("2" "4") res2))
       (is (equalp '("5") res3))
       (is (equalp '("2") res4)))))
+
+(test query-string
+  "Make sure query strings are properly converted."
+  (is (equalp '(:and "dogs" (:not "mutt"))
+              (process-search-string "dogs -mutt")))
+  (is (equalp '(:and "santa" (:not "bolivia") "cruz")
+              (process-search-string "santa -bolivia cruz")))
+  (is (equalp '(:and "i" "have" "no" "friends")
+              (process-search-string "i have no friends"))))
 
 (defun run-tests ()
   (run! 'simple-search))

@@ -8,5 +8,6 @@
            #:unindex
            #:phrase-search
 
-           #:query))
+           #:query
+           #:process-search-string))
 
