@@ -21,7 +21,7 @@ List of features not supported (although they may be supported in the future if
 people bug me enough):
 
 - Built-in, natural phrase searching
-- Sorting based on relevance: a document matches or it doesn't
+- Sorting based on relevance: currently a document matches or it doesn't
 - Persisting to disk
 - Range queries
 
