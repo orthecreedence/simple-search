@@ -1,33 +1,46 @@
 (in-package :simple-search)
 
-(defun query-op (op index query results &key phrase-fn fuzzy)
-  "Recursive query matching function."
+(defun query-op (op index query results &key phrase-fn)
+  "Recursive query matching function. This does all of our index searching."
   (let ((words (words index))
+        ;; if we have an :and, set our results as all current results. the idea
+        ;; is that we widdle away at this list as we perform our operations.
+        ;; conversely if we have an :or or :not, we build up our results from
+        ;; nothing.
         (local-results (when (eq op :and) results))
         (is-not-op (eq op :not))
         ;; treat NOT like OR, but negate the results once the function is over
         (op (if (eq op :not)
                 :or
                 op)))
+    ;; define a function that correctly handles the results from various sub-
+    ;; operations. mainly, :or appends while :and subtracts
     (flet ((do-op (result)
              (cond ((eq op :and)
                     (setf local-results (intersection local-results result :test 'string=)))
                    ((eq op :or)
                     (setf local-results (append local-results result))))))
+      ;; loop over each part of our query, running the corresponding operations
       (dolist (part query)
         (cond ((stringp part)
-               (let ((docs (gethash part words)))
+               ;; this is a string, do an index lookup on it, stemming the word
+               ;; if the index calls for it
+               (let ((docs (if (stemming index)
+                               (append (gethash part words)
+                                       (gethash (stem part) words))
+                               (gethash part words))))
                  (do-op (case op
                           (:or docs)
                           (:and (remove-if-not (lambda (x) (find x docs :test 'string=))
                                                local-results))))))
               ((and (listp part)
                     (eq (car part) :phrase))
+               ;; we got a :phrase parameter, do a phrase search
                (if phrase-fn
                    (let ((phrase-results nil))
-                     (dolist (doc (documents index))
-                       (when (funcall phrase-fn doc (cdr part))
-                         (push doc phrase-results)))
+                     (dolist (doc-id (documents index))
+                       (when (funcall phrase-fn doc-id (gethash doc-id (ref-table index)) (cdr part))
+                         (push doc-id phrase-results)))
                      (do-op (case op
                               ((:or :not) phrase-results)
                               (:and (remove-if-not (lambda (x) (find x phrase-results :test 'string=))
@@ -36,26 +49,26 @@
                     (setf local-results nil)))
               ((and (listp part)
                     (find (car part) '(:and :or :not)))
+               ;; if we got another logic op, recurse
                (do-op (query-op (car part)
                                 index
                                 (cdr part)
-                                ;; if we're doing an OR, pass our full result
+                                ;; if we're doing an :or, pass our full result
                                 ;; set into the recursive call, otherwise we
                                 ;; just pass the current filtered set.
                                 (if (eq op :and) local-results results)
                                 :phrase-fn phrase-fn))))))
+    ;; if we originally got a :not op, negate our findings, otherwise return as
+    ;; is
     (if is-not-op
         (remove-if (lambda (x) (find x local-results :test 'string=)) results)
         local-results)))
 
-(defun query (index query &key sort fuzzy phrase-fn (offset 0) limit)
+(defun query (index query &key sort phrase-fn (offset 0) limit)
   "Search the given index. Query is given as a plist:
 
      (query myindex '(:and \"larry\" (:or (:phrase \"nobody thinks you're funny\")
                                           (:phrase \"alright shutup\"))))
-
-   If :fuzzy is specified, some filtering is applied to the search words to make
-   them nicer.
 
    :sort is a pair
    
@@ -72,7 +85,7 @@
       (error "Only '(:and :or :not :all) are allowed for top-level query items. Wrap :phrase/etc in a logic form."))
     (let* ((final (if (eq query :all)
                       (documents index)
-                      (query-op (car query) index (cdr query) results :phrase-fn phrase-fn :fuzzy fuzzy)))
+                      (query-op (car query) index (cdr query) results :phrase-fn phrase-fn)))
            (final (remove-duplicates final :test 'string=))
            (final (if sort
                       (let ((field (if (listp sort) (car sort) sort))

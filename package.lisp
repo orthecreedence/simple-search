@@ -2,10 +2,10 @@
   (:use :cl)
   (:export #:make-document
 
+           #:documents
            #:make-index
            #:index
            #:unindex
-           #:documents
            #:phrase-search
 
            #:query))

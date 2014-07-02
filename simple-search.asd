@@ -6,7 +6,9 @@
   :depends-on (#:cl-ppcre)
   :components
   ((:file "package")
-   (:file "document" :depends-on ("package"))
-   (:file "index" :depends-on ("document" "package"))
-   (:file "search" :depends-on ("index" "package"))))
+   (:file "util" :depends-on ("package"))
+   (:file "document" :depends-on ("package" "util"))
+   (:file "stemming" :depends-on ("package" "util"))
+   (:file "index" :depends-on ("document" "stemming" "package" "util"))
+   (:file "search" :depends-on ("index" "package" "stemming" "util"))))
 

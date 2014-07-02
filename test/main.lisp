@@ -9,6 +9,13 @@
 (defvar *dog-index* nil
   "Holds our global dog index.")
 
+(defun hash (pairs)
+  "Utility for making quick hashes."
+  (let ((hash (make-hash-table :test 'equal)))
+    (loop for (key val) on pairs by #'cddr do
+      (setf (gethash key hash) val))
+    hash))
+
 (defparameter *dogs*
   (list (hash '("id" "1"
                 "title" "Timmy"
@@ -41,12 +48,8 @@
                 "tags" ("yawn" "loc" "santa cruz" "tennis ball" "pitt" "mutt")
                 "date" 20090812))))
 
-(defun hash (pairs)
-  "Utility for making quick hashes."
-  (let ((hash (make-hash-table :test 'equal)))
-    (loop for (key val) on pairs by #'cddr do
-      (setf (gethash key hash) val))
-    hash))
+(defparameter *stem-data*
+  (yason:parse "{\"consign\":\"consign\",\"consigned\":\"consign\",\"consigning\":\"consign\",\"consignment\":\"consign\",\"consist\":\"consist\",\"consisted\":\"consist\",\"consistency\":\"consist\",\"consistent\":\"consist\",\"consistently\":\"consist\",\"consisting\":\"consist\",\"consists\":\"consist\",\"consolation\":\"consol\",\"consolations\":\"consol\",\"consolatory\":\"consolatori\",\"console\":\"consol\",\"consoled\":\"consol\",\"consoles\":\"consol\",\"consolidate\":\"consolid\",\"consolidated\":\"consolid\",\"consolidating\":\"consolid\",\"consoling\":\"consol\",\"consols\":\"consol\",\"consonant\":\"conson\",\"consort\":\"consort\",\"consorted\":\"consort\",\"consorting\":\"consort\",\"conspicuous\":\"conspicu\",\"conspicuously\":\"conspicu\",\"conspiracy\":\"conspiraci\",\"conspirator\":\"conspir\",\"conspirators\":\"conspir\",\"conspire\":\"conspir\",\"conspired\":\"conspir\",\"conspiring\":\"conspir\",\"constable\":\"constabl\",\"constables\":\"constabl\",\"constance\":\"constanc\",\"constancy\":\"constanc\",\"constant\":\"constant\",\"knack\":\"knack\",\"knackeries\":\"knackeri\",\"knacks\":\"knack\",\"knag\":\"knag\",\"knave\":\"knave\",\"knaves\":\"knave\",\"knavish\":\"knavish\",\"kneaded\":\"knead\",\"kneading\":\"knead\",\"knee\":\"knee\",\"kneel\":\"kneel\",\"kneeled\":\"kneel\",\"kneeling\":\"kneel\",\"kneels\":\"kneel\",\"knees\":\"knee\",\"knell\":\"knell\",\"knelt\":\"knelt\",\"knew\":\"knew\",\"knick\":\"knick\",\"knif\":\"knif\",\"knife\":\"knife\",\"knight\":\"knight\",\"knights\":\"knight\",\"knit\":\"knit\",\"knits\":\"knit\",\"knitted\":\"knit\",\"knitting\":\"knit\",\"knives\":\"knive\",\"knob\":\"knob\",\"knobs\":\"knob\",\"knock\":\"knock\",\"knocked\":\"knock\",\"knocker\":\"knocker\",\"knockers\":\"knocker\",\"knocking\":\"knock\",\"knocks\":\"knock\",\"knopp\":\"knopp\",\"knot\":\"knot\",\"knots\":\"knot\",\"lay\":\"lay\",\"try\":\"tri\"}"))
 
 (defun find-dog (id)
   (find id *dogs* :test (lambda (x dog) (string= x (gethash "id" dog)))))
@@ -60,7 +63,13 @@
       ("location" :tokenize t)
       ("tags" :tokenize t)
       ("date" :sort t))
-    data))
+    data
+    :reference (concatenate 'string
+                            (gethash "body" data) " "
+                            (gethash "title" data) " "
+                            (reduce (lambda (a b) (concatenate 'string a " " b))
+                                    (gethash "tags" data)
+                                    :initial-value ""))))
 
 (test make-doc
   "Do docs work as expected?"
@@ -80,13 +89,8 @@
 
 (test (query :depends-on index)
   "Can we query our index???????!!!?!?!11"
-  (flet ((phrase-fn (doc-id phrase)
-           (let* ((dog (find-dog doc-id))
-                  (search-str (concatenate 'string
-                                           (gethash "body" dog) " "
-                                           (gethash "title" dog) " "
-                                           (reduce (lambda (a b) (concatenate 'string a " " b)) (gethash "tags" dog) :initial-value ""))))
-             (phrase-search phrase search-str))))
+  (flet ((phrase-fn (doc-id ref phrase)
+           (phrase-search phrase ref)))
     (let ((res1 (query *dog-index* '(:and "pomeranian") :sort '("id")))
           (res2 (query *dog-index* '(:and "mutt" (:not "shy")) :sort '("id" . :desc)))
           (res3 (query *dog-index*
@@ -135,13 +139,8 @@
 
 (test (unindex-query :depends-on unindex)
   "Does unindexing reflect query results?"
-  (flet ((phrase-fn (doc-id phrase)
-           (let* ((dog (find-dog doc-id))
-                  (search-str (concatenate 'string
-                                           (gethash "body" dog) " "
-                                           (gethash "title" dog) " "
-                                           (reduce (lambda (a b) (concatenate 'string a " " b)) (gethash "tags" dog) :initial-value ""))))
-             (phrase-search phrase search-str))))
+  (flet ((phrase-fn (doc-id ref phrase)
+           (phrase-search phrase ref)))
     (let ((res1 (query *dog-index* '(:and "pomeranian") :sort '("id")))
           (res2 (query *dog-index* '(:and "mutt" (:not "shy")) :sort '("id" . :desc)))
           (res3 (query *dog-index*
@@ -180,6 +179,26 @@
       (is (equalp '("1") res7))
       (is (equalp '("1" "5" "4") res8))
       (is (equalp '("5" "1") res9)))))
+
+(test word-stemming
+  "See if stemming works (tests taken directly from lunr.js)"
+  (loop for word being the hash-keys of *stem-data*
+        for expected being the hash-values of *stem-data* do
+    (is (string= expected (simple-search::stem word)))))
+
+(test (stemming-search :depends-on word-stemming)
+  "Does searching a stemmed index work?"
+  (let ((dog-index (make-index :stemming t)))
+    (dolist (dog *dogs*)
+      (index dog-index (test-doc dog)))
+    (let ((res1 (query dog-index '(:and "extreme")))
+          (res2 (query dog-index '(:and "seriously") :sort '("id")))
+          (res3 (query dog-index '(:and "make")))
+          (res4 (query dog-index '(:and "grumpy"))))
+      (is (equalp '("2") res1))
+      (is (equalp '("2" "4") res2))
+      (is (equalp '("5") res3))
+      (is (equalp '("2") res4)))))
 
 (defun run-tests ()
   (run! 'simple-search))

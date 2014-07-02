@@ -3,11 +3,13 @@
 (defclass index ()
   ((words :accessor words :initform (make-hash-table :test 'equal))
    (documents :accessor documents :initform nil)
-   (sort-fields :accessor sort-fields :initform (make-hash-table :test 'equal))))
+   (stemming :accessor stemming :initarg :stemming :initform nil)
+   (sort-fields :accessor sort-fields :initform (make-hash-table :test 'equal))
+   (ref-table :accessor ref-table :initform (make-hash-table :test 'equal))))
 
-(defun make-index ()
+(defun make-index (&key stemming)
   "Make a new index."
-  (make-instance 'index))
+  (make-instance 'index :stemming stemming))
 
 (defun make-stopwords (words)
   "Make a quick lookup table for stopwords."
@@ -52,6 +54,7 @@
     (unless doc-id
       (error "document being indexed must have \"id\" field"))
     (pushnew doc-id (documents index) :test 'string=)
+    (setf (gethash doc-id (ref-table index)) (ref doc))
     (loop for field being the hash-keys of fields
           for value being the hash-values of fields
           for meta = (gethash field doc-meta) do
@@ -67,10 +70,14 @@
             (setf doc-sort (gethash doc-id (sort-fields index))))
           ;; and save our sort value
           (setf (gethash field doc-sort) value)))
-      ;; split up our words (if specified) and clean out stopwords
-      (let ((words (if (getf meta :tokenize)
-                       (remove-stopwords (split-words value))
-                       (list value))))
+      ;; split up our words (if specified), clean out stopwords, and perform
+      ;; stemming
+      (let* ((words (if (getf meta :tokenize)
+                        (let ((words (remove-stopwords (split-words value))))
+                          (if (stemming index)
+                              (append words (mapcar 'stem words))
+                              words))
+                        (list value))))
         (dolist (word words)
           (push doc-id (gethash word index-words)))))))
 
@@ -87,6 +94,8 @@
         (remhash key words)))
     ;; remove it from the list of indexed docs
     (setf (documents index) (remove doc-id (documents index) :test 'string=))
+    ;; remove the ref table entry
+    (remhash doc-id (ref-table index))
     ;; remove the sort field entries
     (remhash doc-id (sort-fields index))))
 
