@@ -121,7 +121,7 @@
   "Convert a standard search string into a simple-search query form:
      \"empire -state\" => '(:and \"empire\" (:not \"state\"))"
   (when str
-    (let ((words (cl-ppcre:split "\\s+" str))
+    (let ((words (cl-ppcre:split "\\s+" (string-trim '(#\return #\newline #\space #\tab) str)))
           (query nil))
       (dolist (word (reverse words))
         (push (if (eq (aref word 0) #\-)
