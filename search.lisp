@@ -71,9 +71,10 @@
                                           (:phrase \"alright shutup\"))))
 
    :sort is a pair
-   
-     '(\"id\" . :desc) '(\"date\" . :asc).
-   
+
+     '(\"id\" . :desc)
+     '(\"date\" . :asc)
+
    Since the indexer stores no real data, phrases aren't available via a simple
    query. However, you can pass in a :phrase-fn argument which is a function of
    one argument (the id of the document being searched) and returns either t/nil

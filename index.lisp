@@ -43,6 +43,21 @@
            (words (mapcar 'string-downcase words)))
       words)))
 
+(defun flatten (list)
+  "Flattens a list. Does *not* preserve order."
+  (let ((res nil))
+    (dolist (item list)
+      (if (listp item)
+          (setf res (append res (flatten item)))
+          (push item res)))
+    res))
+
+(defun clean (word)
+  "Trim stuff from a word, eve if not tokenized..."
+  (if (stringp word)
+      (string-trim '(#\return #\newline #\space #\tab) word)
+      word))
+
 (defun index (index doc)
   "Index a document"
   (let* ((fields (fields doc))
@@ -72,14 +87,24 @@
           (setf (gethash field doc-sort) value)))
       ;; split up our words (if specified), clean out stopwords, and perform
       ;; stemming
-      (let* ((words (if (getf meta :tokenize)
-                        (let ((words (remove-stopwords (split-words value))))
+      (let* ((value (if (listp value)
+                        value
+                        (list value)))
+             (words (if (getf meta :tokenize)
+                        (let ((words (remove-stopwords (flatten (mapcar 'split-words value)))))
                           (if (stemming index)
                               (append words (mapcar 'stem words))
                               words))
-                        (list value))))
+                        value))
+             (words (remove-if (lambda (s) (if (stringp s)
+                                               (string= s "")
+                                               t))
+                               words)))
         (dolist (word words)
-          (push doc-id (gethash word index-words)))))))
+          (let* ((word (clean word))
+                 (field-word (format nil "~a:~a" field word)))
+            (push doc-id (gethash word index-words))
+            (push doc-id (gethash field-word index-words))))))))
 
 (defun unindex (index doc-id)
   "Unindex a document from this index. Removes all traces of the document and

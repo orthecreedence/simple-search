@@ -16,12 +16,7 @@
     (dolist (field field-descriptions)
       (let* ((name (car field))
              (meta (cdr field))
-             (value (gethash name data))
-             (value (if (listp value)
-                        (reduce (lambda (a b) (concatenate 'string a " " b))
-                                value
-                                :initial-value "")
-                        value)))
+             (value (gethash name data)))
         (setf (gethash name (fields doc)) value)
         (setf (gethash name (meta doc)) meta)))
     (when reference
