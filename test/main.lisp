@@ -54,14 +54,14 @@
 (defun find-dog (id)
   (find id *dogs* :test (lambda (x dog) (string= x (gethash "id" dog)))))
 
-(defun test-doc (data)
+(defun test-doc (data &key stem)
   "Create a test-standard document using our hardcoded fields."
   (make-document
     '(("id")
-      ("title" :tokenize t)
-      ("body" :tokenize t)
-      ("location" :tokenize t)
-      ("tags" :tokenize t)
+      ("title" :tokenize t :stem stem)
+      ("body" :tokenize t :stem stem)
+      ("location" :tokenize t :stem stem)
+      ("tags" :tokenize t :stem stem)
       ("date" :sort t))
     data
     :reference (concatenate 'string
@@ -190,9 +190,9 @@
 
 (test (stemming-search :depends-on word-stemming)
   "Does searching a stemmed index work?"
-  (let ((dog-index (make-index :stemming t)))
+  (let ((dog-index (make-index)))
     (dolist (dog *dogs*)
-      (index dog-index (test-doc dog)))
+      (index dog-index (test-doc dog :stem t)))
     (let ((res1 (query dog-index '(:and "extreme")))
           (res2 (query dog-index '(:and "seriously") :sort '("id")))
           (res3 (query dog-index '(:and "make")))

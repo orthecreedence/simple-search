@@ -3,13 +3,12 @@
 (defclass index ()
   ((words :accessor words :initform (make-hash-table :test 'equal))
    (documents :accessor documents :initform nil)
-   (stemming :accessor stemming :initarg :stemming :initform nil)
    (sort-fields :accessor sort-fields :initform (make-hash-table :test 'equal))
    (ref-table :accessor ref-table :initform (make-hash-table :test 'equal))))
 
-(defun make-index (&key stemming)
+(defun make-index ()
   "Make a new index."
-  (make-instance 'index :stemming stemming))
+  (make-instance 'index))
 
 (defun make-stopwords (words)
   "Make a quick lookup table for stopwords."
@@ -87,12 +86,13 @@
           (setf (gethash field doc-sort) value)))
       ;; split up our words (if specified), clean out stopwords, and perform
       ;; stemming
-      (let* ((value (if (listp value)
+      (let* ((stemming (getf meta :stem))
+             (value (if (listp value)
                         value
                         (list value)))
              (words (if (getf meta :tokenize)
                         (let ((words (remove-stopwords (flatten (mapcar 'split-words value)))))
-                          (if (stemming index)
+                          (if stemming
                               (append words (mapcar 'stem words))
                               words))
                         value))

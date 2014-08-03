@@ -1,6 +1,6 @@
 (in-package :simple-search)
 
-(defun query-op (op index query results &key phrase-fn)
+(defun query-op (op index query results &key phrase-fn (stem t))
   "Recursive query matching function. This does all of our index searching."
   (let ((words (words index))
         ;; if we have an :and, set our results as all current results. the idea
@@ -23,12 +23,14 @@
       ;; loop over each part of our query, running the corresponding operations
       (dolist (part query)
         (cond ((stringp part)
-               ;; this is a string, do an index lookup on it, stemming the word
-               ;; if the index calls for it
-               (let ((docs (if (stemming index)
-                               (append (gethash part words)
-                                       (gethash (stem part) words))
-                               (gethash part words))))
+               ;; this is a string, do an index lookup on it
+               (let* ((stemming stem)
+                      (stemming (unless (position #\: part)
+                                  stemming))
+                      (docs (if stemming
+                                (append (gethash part words)
+                                        (gethash (stem part) words))
+                                (gethash part words))))
                  (do-op (case op
                           (:or docs)
                           (:and (remove-if-not (lambda (x) (find x docs :test 'string=))

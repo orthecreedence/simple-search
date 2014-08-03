@@ -10,7 +10,7 @@
   "Make a new document type:
     (make-document
       '((\"id\")
-        (\"title\" :tokenize t))
+        (\"title\" :tokenize t :stem t))
       my-data-hash)"
   (let ((doc (make-instance 'document)))
     (dolist (field field-descriptions)
